@@ -64,6 +64,7 @@ async function checkCollision(lon, lat, height) {
   const page = await browser.newPage();
 
   // 监听浏览器控制台输出
+
   page.on('console', async (msg) => {
     const args = await Promise.all(msg.args().map(arg => arg.jsonValue().catch(() => arg.toString())));
     console.log(`[Browser Log]: ${msg.text()}`, ...args);
@@ -93,7 +94,7 @@ async function checkCollision(lon, lat, height) {
     throw new Error('Cesium 加载失败: ' + e.message);
   }
 
-  // 执行检测逻辑
+  // 执行检测逻辑，实际上是在浏览器中执行的 Cesium 代码
   return page.evaluate(async (lon, lat, height) => {
     try {
       //debugger; // 触发断点，便于调试
