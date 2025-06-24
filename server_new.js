@@ -59,8 +59,12 @@ async function initBrowser() {
   page.on('console', async (msg) => {
     const args = await Promise.all(msg.args().map(arg => arg.jsonValue().catch(() => arg.toString())));
     console.log(`[Browser Log]: ${msg.text()}`, ...args);
-  });
 
+  });
+  // 设置浏览器为不受内容安全策略（CSP）限制
+  // 这对于加载Cesium的脚本和资源是必要的
+  // 注意：在生产环境中请谨慎使用，可能会引入安全风险
+  // 这里的设置是为了确保Cesium能够正常加载和运行
   await page.setBypassCSP(true);
   await page.setViewport({ width: 1920, height: 1080 });
 
