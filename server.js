@@ -58,6 +58,8 @@ app.get('/cesium.html', (req, res) => {
   `);
 });
 
+
+
 // 修改后的 checkCollision 函数
 async function checkCollision(lon, lat, height) {
 
@@ -115,7 +117,7 @@ async function checkCollision(lon, lat, height) {
 
       // 替换为以下代码 👇
       const viewer = new Cesium.Viewer('cesiumContainer', {
-        terrain: Cesium.Terrain.fromWorldTerrain(), // 可选：保留世界地形
+        terrain: Cesium.Terrain.fromWorldTerrain(), // 启用地形
         baseLayerPicker: false,
         navigationHelpButton: false,
         timeline: false,
@@ -161,6 +163,9 @@ async function checkCollision(lon, lat, height) {
       });
       console.log('✅ Cesium 加载完成');
 
+      // 定位到模型
+      viewer.zoomTo(tileset);
+
       const terrainHeight = await Cesium.sampleTerrainMostDetailed(
         viewer.terrainProvider,
         [Cesium.Cartographic.fromDegrees(lon, lat)]
@@ -179,21 +184,31 @@ async function checkCollision(lon, lat, height) {
       console.log('检测结果:', intersection);
 
       // ✅ 注意这里不要用和参数相同的名字
-      const cartographic = Cesium.Cartographic.fromCartesian(intersection);
-      const hitLon = Cesium.Math.toDegrees(cartographic.longitude);
-      const hitLat = Cesium.Math.toDegrees(cartographic.latitude);
-      const hitHeight = cartographic.height;
+      if (intersection) {
+        const cartographic = Cesium.Cartographic.fromCartesian(intersection);
+        console.log('转换后经纬度:', cartographic);
+        const hitLon = Cesium.Math.toDegrees(cartographic.longitude);
+        const hitLat = Cesium.Math.toDegrees(cartographic.latitude);
+        const hitHeight = cartographic.height;
 
-      console.log('碰撞点:', hitLon, hitLat, hitHeight);
+        console.log('碰撞点:', hitLon, hitLat, hitHeight);
 
-      const distanceToGround = height - terrainElevation; // 10 - (-38) = 48 米
-      console.log('与地面的距离:', distanceToGround, '米');
+        const distanceToGround = height - terrainElevation; // 10 - (-38) = 48 米
+        console.log('与地面的距离:', distanceToGround, '米');
 
-      return {
-        collision: !!intersection,
-        terrainHeight: intersection ?
-          viewer.scene.globe.getHeight(Cesium.Cartographic.fromCartesian(intersection)) : null
-      };
+        return {
+          collision: !!intersection,
+          terrainHeight: intersection ?
+            viewer.scene.globe.getHeight(Cesium.Cartographic.fromCartesian(intersection)) : null
+        };
+      } else {
+        console.log('❌ 未与地形相交');
+        return {
+          collision: false,
+          terrainHeight: null
+        };
+      }
+
     } catch (e) {
       console.error('Cesium 内部错误:', e);
       throw e;
