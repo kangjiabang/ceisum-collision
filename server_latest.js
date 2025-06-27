@@ -176,30 +176,6 @@ async function checkCollision(lon, lat, height) {
       console.log(`射线起点海拔高度: ${height.toFixed(2)} 米`);
       console.log('射线方向:', ray.direction);
 
-      // drillPickFromRay 获取射线穿透的所有物体
-      // const results = viewer.scene.drillPickFromRay(ray, 10); // 第二个参数限制10个物体
-      // if (results.length === 0) {
-      //   console.log("❌ 射线未穿过任何建筑物");
-      //   return {
-      //     collision: false,
-      //     terrainHeight: cartographic.height
-      //   };
-      // }
-      // console.log('本次结果数量:', results.length);
-
-      // const ids = results.map(r => r.id || r.toString());
-      // console.log('结果ID列表:', ids);
-
-      // // 记录历史调用结果，检测是否有重复
-      // if (!window._historyIds) {
-      //   window._historyIds = [];
-      // }
-      // window._historyIds.push(...ids);
-
-      // // 去重后长度
-      // const uniqueIds = [...new Set(window._historyIds)];
-      // console.log('累计唯一ID数量:', uniqueIds.length);
-
       const result_pick = viewer.scene.pickFromRay(ray);
 
       if (!result_pick) {
@@ -237,14 +213,12 @@ async function checkCollision(lon, lat, height) {
         console.log(`📏 无人机到该物体的距离: ${distance.toFixed(2)} 米`);
 
         const COLLISION_INSIDE_THRESHOLD = 2; // 米，表示“内部”的距离阈值
+        const COLLISION_NEARBY_THRESHOLD = 200; // 米，表示“碰撞风险”的距离阈值
 
-        if (distance < 500) {
-          console.log("🎨 符合条件，修改颜色");
+        if (distance < COLLISION_INSIDE_THRESHOLD) {
+          console.log("🟥 无人机在建筑物内部");
           result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
-          changedCount++;
 
-          // 直接改变建筑物颜色（而不是加红点）
-          //result.color = Cesium.Color.BLUE.withAlpha(0.5);
           // 可视化命中点
           viewer.entities.add({
             position: hitPoint,
@@ -253,30 +227,37 @@ async function checkCollision(lon, lat, height) {
               color: Cesium.Color.RED
             }
           });
-        } else {
-          console.log("⚠️ 距离大于200m，跳过");
-        }
-      }
-      //}
-      //  }
-      let result;
 
-      if (changedCount === 0) {
-        console.log("✅ 射线穿透但无建筑物距离<200m");
-        result = {
-          collision: false,
-        };
+          result = {
+            collision: true,
+            hitDistance: distance,
+            hitObjectHeight: hitObjectHeight
+          };
+        } else if (distance < COLLISION_NEARBY_THRESHOLD) {
+          console.log("🟧 无人机靠近建筑物");
+          result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
+          // 可视化命中点
+          viewer.entities.add({
+            position: hitPoint,
+            point: {
+              pixelSize: 50,
+              color: Cesium.Color.RED
+            }
+          });
+          result = {
+            collision: false,
+            hitDistance: distance,
+            hitObjectHeight: hitObjectHeight
+          };
+        } else {
+          console.log("✅ 距离过远，视为未碰撞");
+          result = {
+            collision: false
+          };
+
+        }
+        return result;
       }
-      else {
-        console.log(`✅ 射线穿透 ${changedCount} 个建筑物，且至少有一个距离<200m`);
-        result = {
-          collision: true,
-          hitpointHeight: cartographicHit.height,
-          hitDistance: distance,
-          hitObjectHeight: hitObjectHeight
-        };
-      }
-      return result
     } catch (e) {
       console.error('Cesium 内部错误:', e);
       throw e;
@@ -292,7 +273,7 @@ app.post('/api/check-collision', async (req, res) => {
   const { longitude, latitude, height } = req.body
 
   if (typeof longitude !== 'number' || typeof latitude !== 'number' || typeof height !== 'number') {
-    return res.status(400).json({ error: 'Invalid input' })
+    // return res.status(400).json({ error: 'Invalid input' })
   }
 
   try {
