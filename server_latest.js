@@ -164,100 +164,120 @@ async function checkCollision(lon, lat, height) {
   const result_final = await page.evaluate(async (lon, lat, height) => {
     try {
       const dronePositionCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, height);
-      const cameraDirection = Cesium.Cartesian3.negate(Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3())
-      const ray = new Cesium.Ray(
-        dronePositionCartesian,
-        cameraDirection // 向下发射射线（取反Z轴）
-      );
+      // const cameraDirection = Cesium.Cartesian3.negate(Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3())
 
-      console.log('射线起点:', ray.origin);
+      // 方法2：多方向射线检测（补充方案）
+      const directions = [
+        Cesium.Cartesian3.UNIT_X,   // 右
+        Cesium.Cartesian3.UNIT_Y,   // 前
+        Cesium.Cartesian3.UNIT_Z,  // 上
+        Cesium.Cartesian3.negate(Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3()), // 左
+        Cesium.Cartesian3.negate(Cesium.Cartesian3.UNIT_Y, new Cesium.Cartesian3()), // 后
+        Cesium.Cartesian3.negate(Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3())  // 下
+      ];
 
-      const cartographic = Cesium.Cartographic.fromCartesian(ray.origin);
-      console.log(`射线起点海拔高度: ${height.toFixed(2)} 米`);
-      console.log('射线方向:', ray.direction);
+      let collisionDetected = false;
+      let collisionResult = null;
 
-      const result_pick = viewer.scene.pickFromRay(ray);
+      directions.forEach(dir => {
+        if (collisionDetected) return; // 如果已经检测到碰撞，跳过后续方向
+        const ray = new Cesium.Ray(
+          dronePositionCartesian,
+          dir // 向下发射射线（取反Z轴）
+        );
 
-      if (!result_pick) {
-        console.log('没有碰撞到 anything');
-        return {
-          collision: false,
-        };
-      }
-      console.log('pickFromRay 结果:', result_pick.position);
+        console.log('射线起点:', ray.origin);
 
-      let changedCount = 0;
-      let cartographicHit = null;
-      let distance = 0;
-      let hitObjectHeight = 0;
+        const cartographic = Cesium.Cartographic.fromCartesian(ray.origin);
+        console.log(`射线起点海拔高度: ${height.toFixed(2)} 米`);
+        console.log('射线方向:', ray.direction);
 
-      //for (const result of results) {
-      //if (result instanceof Cesium.Cesium3DTileFeature) {
+        const result_pick = viewer.scene.pickFromRay(ray);
 
-      hitObjectHeight = Cesium.Cartographic.fromCartesian(result_pick.position).height;  // 获取建筑物高度属性
-      console.log(`建筑物高度: ${hitObjectHeight} 米`);
-      // 计算射线与该物体的相交位置
-      const intersection = viewer.scene.pickFromRay(ray, [result_pick]);
-      if (intersection && intersection.position) {
-        const hitPoint = intersection.position;
-
-        console.log('dronePositionCartesian:', dronePositionCartesian);
-        console.log('hitPoint:', hitPoint);
-
-        cartographicHit = Cesium.Cartographic.fromCartesian(hitPoint);
-        console.log('碰撞点经度:', Cesium.Math.toDegrees(cartographicHit.longitude));
-        console.log('碰撞点纬度:', Cesium.Math.toDegrees(cartographicHit.latitude));
-        console.log('碰撞点高度:', cartographicHit.height);
-        distance = Cesium.Cartesian3.distance(dronePositionCartesian, hitPoint);
-
-        console.log(`📏 无人机到该物体的距离: ${distance.toFixed(2)} 米`);
-
-        const COLLISION_INSIDE_THRESHOLD = 2; // 米，表示“内部”的距离阈值
-        const COLLISION_NEARBY_THRESHOLD = 200; // 米，表示“碰撞风险”的距离阈值
-
-        if (distance < COLLISION_INSIDE_THRESHOLD) {
-          console.log("🟥 无人机在建筑物内部");
-          result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
-
-          // 可视化命中点
-          viewer.entities.add({
-            position: hitPoint,
-            point: {
-              pixelSize: 50,
-              color: Cesium.Color.RED
-            }
-          });
-
-          result = {
-            collision: true,
-            hitDistance: distance,
-            hitObjectHeight: hitObjectHeight
-          };
-        } else if (distance < COLLISION_NEARBY_THRESHOLD) {
-          console.log("🟧 无人机靠近建筑物");
-          result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
-          // 可视化命中点
-          viewer.entities.add({
-            position: hitPoint,
-            point: {
-              pixelSize: 50,
-              color: Cesium.Color.RED
-            }
-          });
-          result = {
+        if (!result_pick) {
+          console.log('没有碰撞到 anything');
+          collisionResult = {
             collision: false,
-            hitDistance: distance,
-            hitObjectHeight: hitObjectHeight
           };
-        } else {
-          console.log("✅ 距离过远，视为未碰撞");
-          result = {
-            collision: false
-          };
-
+          return;
         }
-        return result;
-      }
+        console.log('pickFromRay 结果:', result_pick.position);
+
+        let changedCount = 0;
+        let cartographicHit = null;
+        let distance = 0;
+        let hitObjectHeight = 0;
+
+        //for (const result of results) {
+        //if (result instanceof Cesium.Cesium3DTileFeature) {
+
+        hitObjectHeight = Cesium.Cartographic.fromCartesian(result_pick.position).height;  // 获取建筑物高度属性
+        console.log(`建筑物高度: ${hitObjectHeight} 米`);
+        // 计算射线与该物体的相交位置
+        const intersection = viewer.scene.pickFromRay(ray, [result_pick]);
+        if (intersection && intersection.position) {
+          const hitPoint = intersection.position;
+
+          console.log('dronePositionCartesian:', dronePositionCartesian);
+          console.log('hitPoint:', hitPoint);
+
+          cartographicHit = Cesium.Cartographic.fromCartesian(hitPoint);
+          console.log('碰撞点经度:', Cesium.Math.toDegrees(cartographicHit.longitude));
+          console.log('碰撞点纬度:', Cesium.Math.toDegrees(cartographicHit.latitude));
+          console.log('碰撞点高度:', cartographicHit.height);
+          distance = Cesium.Cartesian3.distance(dronePositionCartesian, hitPoint);
+
+          console.log(`📏 无人机到该物体的距离: ${distance.toFixed(2)} 米`);
+
+          const COLLISION_INSIDE_THRESHOLD = 120; // 米，表示“内部”的距离阈值
+          const COLLISION_NEARBY_THRESHOLD = 200; // 米，表示“碰撞风险”的距离阈值
+
+          if (distance < COLLISION_INSIDE_THRESHOLD) {
+            console.log("🟥 无人机在建筑物内部");
+            collisionDetected = true;
+            result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
+
+            // 可视化命中点
+            viewer.entities.add({
+              position: hitPoint,
+              point: {
+                pixelSize: 50,
+                color: Cesium.Color.RED
+              }
+            });
+
+            collisionResult = {
+              collision: true,
+              hitDistance: distance,
+              hitObjectHeight: hitObjectHeight
+            };
+          } else if (distance < COLLISION_NEARBY_THRESHOLD) {
+            console.log("🟧 无人机靠近建筑物");
+            result_pick.color = Cesium.Color.BLUE.withAlpha(0.5);
+            // 可视化命中点
+            viewer.entities.add({
+              position: hitPoint,
+              point: {
+                pixelSize: 50,
+                color: Cesium.Color.RED
+              }
+            });
+            collisionResult = {
+              collision: false,
+              hitDistance: distance,
+              hitObjectHeight: hitObjectHeight
+            };
+          } else {
+            console.log("✅ 距离过远，视为未碰撞");
+            collisionResult = {
+              collision: false
+            };
+
+          }
+        }
+      });
+      return collisionResult;
+
     } catch (e) {
       console.error('Cesium 内部错误:', e);
       throw e;
