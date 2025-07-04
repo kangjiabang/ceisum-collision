@@ -42,7 +42,7 @@ let page  // ⬅️ 关键：全局Page
 
 async function initBrowser() {
   browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
     devtools: true,
     args: [
       '--disable-gpu',
@@ -52,7 +52,8 @@ async function initBrowser() {
       '--disable-software-rasterizer',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu-compositing',
-      '--window-size=1920,1080'
+      '--window-size=1920,1080',
+      '--disable-features=TranslateUI' // 禁用翻译UI，避免干扰
     ],
     ignoreDefaultArgs: ['--disable-gpu']
   });
@@ -114,7 +115,7 @@ async function initBrowser() {
       let timeout = setTimeout(() => {
         clearTimeout(timeout);
         reject(new Error('Tileset加载超时'));
-      }, 25000);
+      }, 250000);
       window.viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining) => {
         if (remaining === 0) {
           clearTimeout(timeout);
@@ -318,7 +319,7 @@ app.post('/api/check-collision', async (req, res) => {
 })
 
 // 启动服务
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3100
 // 启动服务
 app.listen(PORT, async () => {
   console.log(`🚀 API Server running at http://localhost:${PORT}`);

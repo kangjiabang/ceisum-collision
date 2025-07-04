@@ -1,7 +1,6 @@
-# 使用 Debian-slim 版本，兼容 Puppeteer 和 Chromium
 FROM node:20-slim
 
-# 安装 Chromium 所需依赖
+# 安装 Chromium 及依赖项
 RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
@@ -27,20 +26,24 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 设置 Puppeteer 不自动下载 Chromium
+# Puppeteer 配置：跳过下载 Chromium，手动指定路径
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # 设置工作目录
 WORKDIR /usr/src/app
 
-# 拷贝项目代码
+# 拷贝代码并安装依赖
 COPY package*.json ./
 RUN npm install
 COPY . .
 
-# 暴露端口（如果你的服务监听 3000）
+# 替换 Puppeteer 启动配置，必须带上 --no-sandbox --disable-setuid-sandbox
+ENV CHROME_ARGS="--no-sandbox --disable-setuid-sandbox"
+
+# 如果你写的代码里没有用上这些 args，请确保传入了它们：
+# puppeteer.launch({ args: process.env.CHROME_ARGS.split(" "), executablePath: process.env.PUPPETEER_EXECUTABLE_PATH })
+
 EXPOSE 3000
 
-# 启动服务
 CMD ["node", "server_latest_new.js"]
