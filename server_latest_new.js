@@ -7,6 +7,8 @@ app.use(express.json())
 
 // 挂载整个 Cesium 构建目录为静态资源
 app.use('/cesium', express.static(path.resolve(__dirname, 'node_modules/cesium/Build/Cesium')));
+// 挂载本地 3D Tiles 静态目录
+app.use('/assets', express.static(path.resolve(__dirname, 'assets')));
 
 // 提供 HTML 页面用于加载 Cesium
 // 修改后的 /cesium.html 路由（添加 CSP 豁免和完整 Cesium 环境）
@@ -40,7 +42,7 @@ let page  // ⬅️ 关键：全局Page
 
 async function initBrowser() {
   browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     devtools: true,
     args: [
       '--disable-gpu',
@@ -86,7 +88,8 @@ async function initBrowser() {
     });
 
     const tileset = await Cesium.Cesium3DTileset.fromUrl(
-      "http://localhost:5173/assets/xiaoshan_3dtiles/tileset.json", {
+      //"http://localhost:5173/assets/xiaoshan_3dtiles/tileset.json", {
+      "/assets/xiaoshan_3dtiles/tileset.json", {
       debugShowBoundingVolume: true,
       dynamicScreenSpaceError: true,
       maximumMemoryUsage: 512
